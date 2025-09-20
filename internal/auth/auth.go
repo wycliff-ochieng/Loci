@@ -33,3 +33,9 @@ func GenerateToken(userID uuid.UUID, email string, secret string, expiry time.Du
 
 	return token.SignedString([]byte(secret))
 }
+
+//validate token
+
+func ValidateToken(token string, secret string) (*Claims, error) {
+	return nil, nil
+}
