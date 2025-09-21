@@ -7,7 +7,7 @@ import (
 )
 
 type Users struct {
-	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"id"`
 	Firstname string    `json:"firstname"`
 	Lastname  string    `json:"lastname"`
 	Username  string    `json:"username"`
@@ -17,7 +17,7 @@ type Users struct {
 }
 
 type Loci struct {
-	ID             uuid.UUID
+	LociID         uuid.UUID
 	UserID         uuid.UUID
 	Message        string
 	Location       point.Point
