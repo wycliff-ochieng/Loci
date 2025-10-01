@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose"
 	"github.com/wycliff-ochieng/internal/config"
 )
@@ -25,19 +26,21 @@ func NewPostgis(ctx context.Context, cfg *config.Config) (*Postgis, error) {
 		cfg.DB_SSLMODE,
 	)
 
-	db, err := pgxpool.New(ctx, dsn)
+	dbPool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create connection due to: %v", err)
 	}
 
-	if err := goose.SetDialect(); err != nil {
+	db := stdlib.OpenDBFromPool(dbPool)
+
+	if err := goose.SetDialect("postrges"); err != nil {
 		log.Fatalf("error setting dialect: %s", err)
 	}
 
 	if err := goose.Up(db, "path/to/migrations"); err != nil {
 		log.Fatalf("error spinning up goose: %s", err)
 	}
-	return &Postgis{db}, nil
+	return &Postgis{dbPool}, nil
 }
 
 func (pg *Postgis) Init(ctx context.Context) error {
