@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/wycliff-ochieng/cmd/api"
+	"github.com/wycliff-ochieng/api"
 )
 
 func main() {
