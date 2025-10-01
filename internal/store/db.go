@@ -3,8 +3,10 @@ package store
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pressly/goose"
 	"github.com/wycliff-ochieng/internal/config"
 )
 
@@ -28,10 +30,14 @@ func NewPostgis(ctx context.Context, cfg *config.Config) (*Postgis, error) {
 		return nil, fmt.Errorf("unable to create connection due to: %v", err)
 	}
 
-	if err := db.Ping(ctx); err != nil {
-		return nil, err
+	if err := goose.SetDialect(); err != nil {
+		log.Fatalf("error setting dialect: %s", err)
 	}
-	return nil, nil
+
+	if err := goose.Up(db, "path/to/migrations"); err != nil {
+		log.Fatalf("error spinning up goose: %s", err)
+	}
+	return &Postgis{db}, nil
 }
 
 func (pg *Postgis) Init(ctx context.Context) error {
