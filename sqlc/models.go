@@ -11,12 +11,14 @@ import (
 )
 
 type Loci struct {
-	ID        uuid.UUID
-	UserID    uuid.UUID
-	Message   string
-	Location  interface{}
-	CreatedAt time.Time
-	ViewCount int32
+	ID              uuid.UUID
+	UserID          uuid.UUID
+	Message         string
+	Location        interface{}
+	CreatedAt       time.Time
+	ViewCount       int32
+	RepliesCount    int32
+	VisibilityScore float64
 }
 
 type User struct {
