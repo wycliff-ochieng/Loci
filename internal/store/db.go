@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose"
@@ -13,6 +15,7 @@ import (
 
 type Postgis struct {
 	db *pgxpool.Pool
+	//dbtx sqlc.DBTX
 }
 
 func NewPostgis(ctx context.Context, cfg *config.Config) (*Postgis, error) {
@@ -41,6 +44,22 @@ func NewPostgis(ctx context.Context, cfg *config.Config) (*Postgis, error) {
 		log.Fatalf("error spinning up goose: %s", err)
 	}
 	return &Postgis{dbPool}, nil
+}
+
+//Exec(context.Context, string, ...interface{}) (pgconn.CommandTag, error)
+//Query(context.Context, string, ...interface{}) (pgx.Rows, error)
+//QueryRow(context.Context, string, ...interface{}) pgx.Row
+
+func (pg *Postgis) Exec(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error) {
+	return pg.db.Exec(ctx, query, args...)
+}
+
+func (pg *Postgis) Query(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
+	return pg.db.Query(ctx, query, args...)
+}
+
+func (pg *Postgis) QueryRow(ctx context.Context, query string, args ...interface{}) pgx.Row {
+	return pg.db.QueryRow(ctx, query, args...)
 }
 
 func (pg *Postgis) Init(ctx context.Context) error {
