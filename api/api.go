@@ -11,7 +11,10 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/wycliff-ochieng/internal/config"
+	"github.com/wycliff-ochieng/internal/service"
 	"github.com/wycliff-ochieng/internal/store"
+	handlers "github.com/wycliff-ochieng/internal/transport/http"
+	"github.com/wycliff-ochieng/sqlc"
 )
 
 type Server struct {
@@ -20,10 +23,11 @@ type Server struct {
 	cfg  *config.Config
 }
 
-func NewServer(l *slog.Logger, addr string) *Server {
+func NewServer(l *slog.Logger, addr string, cfg *config.Config) *Server {
 	return &Server{
 		l:    l,
 		addr: addr,
+		cfg:  cfg,
 	}
 }
 
@@ -40,19 +44,22 @@ func (s *Server) Run() {
 
 	defer cancel()
 
-	//handler
-
-	//service
-
 	db, err := store.NewPostgis(ctx, s.cfg)
 	if err != nil {
 		log.Printf("Error: %s", err)
 	}
 
+	queries := sqlc.New(db)
+
+	us := service.NewUserService(db, *queries)
+
+	//handler
+	uh := handlers.NewUserHandler(logger, us)
+
 	router := mux.NewRouter()
 
 	test := router.Methods("POST").Subrouter()
-	test.HandleFunc("/", LociTest)
+	test.HandleFunc("/register", uh.Register)
 
 	if err := http.ListenAndServe(s.addr, router); err != nil {
 		fmt.Errorf("rror listening to server: %s", err)
