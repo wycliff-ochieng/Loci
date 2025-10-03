@@ -3,14 +3,14 @@
 SELECT 'up SQL query';
 -- +goose StatementEnd
 
-CREATE TABLE loci (
+CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    message TEXT NOT NULL CHECK (length(message) > 0 AND length(message) <= 280),
-    -- GEOGRAPHY type is better than GEOMETRY for lat/lon calculations in meters/km
-    location GEOGRAPHY(Point, 4326) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    view_count INT NOT NULL DEFAULT 0
+    username VARCHAR(50) UNIQUE NOT NULL CHECK (username ~ '^[a-zA-Z0-9_]{3,50}$'),
+    firstname VARCHAR(50) NOT NULL,
+    lastname VARCHAR(50) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- +goose Down
