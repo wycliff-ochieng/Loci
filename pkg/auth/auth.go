@@ -8,6 +8,11 @@ import (
 	"github.com/google/uuid"
 )
 
+type TokenPair struct {
+	AccessToken  string
+	RefreshToken string
+}
+
 var secret = []byte("Secret")
 
 func GenerateToken(userID uuid.UUID, email string, secret string, expiry time.Duration) (string, error) {
@@ -48,4 +53,21 @@ func ValidateToken(tokenString string, jwtSecret string) (*Claims, error) {
 		return claims, nil
 	}
 	return nil, fmt.Errorf("invalid token")
+}
+
+func GenerateTokenPair(ID uuid.UUID, email string, jwtSecret string, refreshSecret string, jwtExpiry time.Duration, refreshExpiry time.Duration) (*TokenPair, error) {
+
+	accessToken, err := GenerateToken(ID, email, jwtSecret, jwtExpiry)
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := GenerateToken(ID, email, refreshSecret, refreshExpiry)
+	if err != nil {
+		return nil, err
+	}
+	return &TokenPair{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, nil
 }
