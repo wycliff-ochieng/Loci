@@ -9,8 +9,8 @@ import (
 )
 
 type TokenPair struct {
-	AccessToken  string
-	RefreshToken string
+	AccessToken  string `json:"accesstoken"`
+	RefreshToken string `json:"refreshtoken"`
 }
 
 var secret = []byte("Secret")
@@ -70,4 +70,11 @@ func GenerateTokenPair(ID uuid.UUID, email string, jwtSecret string, refreshSecr
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+func ExtractBearerToken(authHeader string) string {
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		return authHeader[7:]
+	}
+	return ""
 }
