@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 
 	"github.com/wycliff-ochieng/internal/models"
@@ -20,6 +22,7 @@ type UserService struct {
 var (
 	ErrForbidden   = errors.New("Cannot perform this operation")
 	ErrOutOfBounds = errors.New("Error setting bounds")
+	ErrNotFound    = errors.New("No user with that email/ username")
 )
 
 func NewUserService(db *store.Postgis, query sqlc.Queries) *UserService {
@@ -62,15 +65,29 @@ func (us *UserService) Register(ctx context.Context, username string, firstname 
 	}, nil
 }
 
-/*func (us *UserService) Login(ctx context.Context, email string, password string) (*models.UserResponse, error) {
+func (us *UserService) LoginUser(ctx context.Context, username string, email string, password string) (*models.UserResponse, error) {
 
-	user, err := us.query.Login(ctx, email)
-	if err != nil {
-		return nil, err
+	//sqlc.LoginParams
+	var User models.User
+
+	user, err := us.query.Login(ctx, sqlc.LoginParams{Email: email, Username: username})
+	if err != nil || err == sql.ErrNoRows {
+		return nil, ErrNotFound
 	}
 
+	if err := User.ComparePassword(password); err != nil {
+		return nil, fmt.Errorf("invalid password!!Try again")
+	}
+
+	return &models.UserResponse{
+		UserID:    user.ID,
+		Firstname: user.Firstname,
+		Lastname:  user.Lastname,
+		Username:  user.Username,
+		Email:     user.Email,
+	}, nil
+
 }
-*/
 
 func (us *UserService) GetLociWithinBounds(ctx context.Context, bounds models.BoundBox) ([]sqlc.GetLociInBoundsRow, error) {
 	log.Println("Database operation in motion")
