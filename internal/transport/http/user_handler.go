@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/gorilla/mux"
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/internal/service"
@@ -25,6 +26,17 @@ type RegisterReq struct {
 	Lastname  string
 	Email     string
 	Password  string
+}
+
+type location struct {
+	Lat  float64
+	Long float64
+}
+
+type CreateLociReq struct {
+	UserID   uuid.UUID
+	Message  string
+	Location location
 }
 
 func NewUserHandler(l *slog.Logger, us *service.UserService) *UserHandler {
@@ -114,6 +126,8 @@ func (h *UserHandler) CreateLoci(w http.ResponseWriter, r *http.Request) {
 	var loci *models.LociResponse
 
 	ctx := r.Context()
+
+	var req CreateLociReq
 
 	userID, err := middleware.GetUserUUIDFromContext(ctx)
 	if err != nil {
