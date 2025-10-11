@@ -7,17 +7,26 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/gofrs/uuid"
+	"github.com/wycliff-ochieng/internal/limitter"
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/internal/store"
 	"github.com/wycliff-ochieng/sqlc"
-	//"github.com/wycliff-ochieng/internal/tra"
 )
 
 type UserService struct {
 	db    *store.Postgis
 	query sqlc.Queries
+	rtl   *limitter.RedisLimitter
+	//lc sqlc.CreateLociParams
 	//uh http.UserHandler
 }
+
+type RateLimitAction string
+
+const (
+	ActionPostLocus = "post_locus"
+)
 
 var (
 	ErrForbidden   = errors.New("Cannot perform this operation")
@@ -104,4 +113,33 @@ func (us *UserService) GetLociWithinBounds(ctx context.Context, bounds models.Bo
 
 	return messages, nil
 
+}
+
+func (us *UserService) CreateLoci(ctx context.Context, userID uuid.UUID, params sqlc.CreateLociParams) (*models.LociResponse, error) {
+
+	//message := "test message"
+	//location :=
+
+	identifier := fmt.Sprintf("%d", userID)
+
+	redisKey := generateRedisKey(ActionPostLocus, identifier)
+
+	allowed, err := us.rtl.AllowPost(ctx, redisKey)
+
+	dbparams := sqlc.CreateLociParams{
+		UserID:   params.UserID,
+		Message:  params.Message,
+		Location: params.Location,
+	}
+
+	loci, err := us.query.CreateLoci(ctx, dbparams)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+func generateRedisKey(action RateLimitAction, identifier string) string {
+	return fmt.Sprintf("ratelimit:%s:%s", action, identifier)
 }
