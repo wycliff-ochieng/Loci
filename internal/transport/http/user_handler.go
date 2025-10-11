@@ -1,11 +1,17 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"time"
 
+	"github.com/gorilla/mux"
+	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/internal/service"
+	"github.com/wycliff-ochieng/pkg/middleware"
 )
 
 type UserHandler struct {
@@ -55,6 +61,72 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&user)
+}
 
-	//err := json.NewDecoder(r.Body).Decode()
+// api :: GET -> api/loci?{SouthWestlat=}&{}&{}&{}
+func (h *UserHandler) GetLociInGeoFencedLocation(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info("Messages within geofenced location being viewed")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	//geeting the radius/ geolocation points from the client
+	vars := mux.Vars(r)
+	SWLatStr := vars["SouthWestlat"]
+	SWLongStr := vars["SouthWestLong"]
+	NELatStr := vars["NorthEastLat"]
+	NELongStr := vars["NorthEastLong"]
+
+	//parse the string to float
+	SWLat, err1 := strconv.ParseFloat(SWLatStr, 64)
+	SWLong, err2 := strconv.ParseFloat(SWLongStr, 64)
+	NELat, err3 := strconv.ParseFloat(NELatStr, 64)
+	NELong, err4 := strconv.ParseFloat(NELongStr, 64)
+
+	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
+		http.Error(w, "Error converting the coordinates to float", http.StatusFailedDependency)
+		return
+	}
+
+	box := models.BoundBox{
+		NorthEastLat:  NELat,
+		NorthEastLong: NELong,
+		SouthWestLat:  SWLat,
+		SouthWestLong: SWLong,
+	}
+
+	//call the service layer
+	AllLoci, err := h.us.GetLociWithinBounds(ctx, box)
+	if err != nil {
+		http.Error(w, "some error while fetching loci within the geolocation from the service layer", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&AllLoci)
+
+}
+
+func (h *UserHandler) CreateLoci(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info("create message handler in action")
+
+	var loci *models.LociResponse
+
+	ctx := r.Context()
+
+	userID, err := middleware.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "Could get userID from context", http.StatusExpectationFailed)
+		return
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&loci)
+	if err != nil {
+		http.Error(w, "error decoding message from json", http.StatusInternalServerError)
+		return
+	}
+
+	//validate message
+
 }
