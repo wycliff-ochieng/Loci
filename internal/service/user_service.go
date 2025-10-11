@@ -32,6 +32,7 @@ var (
 	ErrForbidden   = errors.New("Cannot perform this operation")
 	ErrOutOfBounds = errors.New("Error setting bounds")
 	ErrNotFound    = errors.New("No user with that email/ username")
+	ErrRateLimited = errors.New("user not allowed to create new locus, maximum retires exceeded")
 )
 
 func NewUserService(db *store.Postgis, query sqlc.Queries) *UserService {
@@ -115,7 +116,7 @@ func (us *UserService) GetLociWithinBounds(ctx context.Context, bounds models.Bo
 
 }
 
-func (us *UserService) CreateLoci(ctx context.Context, userID uuid.UUID, params sqlc.CreateLociParams) (*models.LociResponse, error) {
+func (us *UserService) CreateLoci(ctx context.Context, userID uuid.UUID, params sqlc.CreateLociParams) ([]sqlc.Loci, error) {
 
 	//message := "test message"
 	//location :=
@@ -125,19 +126,31 @@ func (us *UserService) CreateLoci(ctx context.Context, userID uuid.UUID, params 
 	redisKey := generateRedisKey(ActionPostLocus, identifier)
 
 	allowed, err := us.rtl.AllowPost(ctx, redisKey)
+	if err != nil {
+		log.Printf("Error in the rate limit check due to %s", err)
+		return nil, err
+	}
+
+	if !allowed {
+		return nil, ErrRateLimited
+	}
+
+	//content moderation logic -> check if message contains only allowed words
 
 	dbparams := sqlc.CreateLociParams{
 		UserID:   params.UserID,
 		Message:  params.Message,
 		Location: params.Location,
 	}
-
+	//calling the db
 	loci, err := us.query.CreateLoci(ctx, dbparams)
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	//delegeation to websocket
+
+	return loci, nil
 }
 
 func generateRedisKey(action RateLimitAction, identifier string) string {
