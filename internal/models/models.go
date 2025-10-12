@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,6 +48,11 @@ type Metadata struct {
 	Location string `json:"location"`
 }
 
+type GeoPoint struct {
+	Lat  float64
+	Long float64
+}
+
 type User struct {
 	ID        int       `json:"id"`
 	UserID    uuid.UUID `json:"userId"`
@@ -75,4 +81,28 @@ func NewUser(id int, username string, firstname string, lastname string, email s
 
 func (u *User) ComparePassword(password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+}
+
+const (
+	earthRadiusKM = 6471
+)
+
+func CalculateDistance(pt1, pt2 *GeoPoint) float64 {
+	//implement Haverside formula ( converting degrees to radians)
+	//apply the haverside formula to the distance
+	// return the clculated distance
+	lat1Rad := pt1.Lat * math.Pi / 180
+	lon1Rad := pt1.Long * math.Pi / 180
+	lat2Rad := pt2.Lat * math.Pi / 180
+	long2Rad := pt2.Long * math.Pi / 180
+
+	diffLat := lat1Rad - lat2Rad
+	diffLong := lon1Rad - long2Rad
+
+	a := math.Pow(math.Sin(diffLat/2), 2) + math.Cos(lat1Rad)*math.Cos(lat2Rad)*math.Pow(math.Sin(diffLong/2), 2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+
+	distance := earthRadiusKM * c
+
+	return distance
 }
