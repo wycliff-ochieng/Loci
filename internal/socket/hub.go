@@ -97,3 +97,30 @@ func (h *Hub) Run() {
 func (h *Hub) BroadcastNewLoci(locus *sqlc.Loci) {
 	return
 }
+
+// readPump pumps messages from the websocket connection to the hub
+func (c *Client) ReadPump() {
+
+	defer func() {
+		c.Hub.UnRegister <- c //tell hub this client is gone
+		c.Conn.Close()        // close the network connection
+	}()
+
+	for {
+		_, message, err := c.Conn.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("error: %s", err)
+			}
+			break
+		}
+		//message was successfully read process it, unmarshal it to figure out its type
+		var msg Websocket
+		json.Unmarshal(message, &msg)
+
+		switch msg.Type {
+
+		}
+	}
+
+}
