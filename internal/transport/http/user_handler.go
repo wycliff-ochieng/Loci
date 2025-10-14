@@ -8,11 +8,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/internal/service"
 	"github.com/wycliff-ochieng/pkg/middleware"
+	"github.com/wycliff-ochieng/sqlc"
 )
 
 type UserHandler struct {
@@ -34,9 +35,9 @@ type location struct {
 }
 
 type CreateLociReq struct {
-	UserID   uuid.UUID
-	Message  string
-	Location location
+	UserID   uuid.UUID `json:"userID"`
+	Message  string    `json:"message"`
+	Location location  `json:"loaction"`
 }
 
 func NewUserHandler(l *slog.Logger, us *service.UserService) *UserHandler {
@@ -123,11 +124,11 @@ func (h *UserHandler) GetLociInGeoFencedLocation(w http.ResponseWriter, r *http.
 func (h *UserHandler) CreateLoci(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("create message handler in action")
 
-	var loci *models.LociResponse
-
-	ctx := r.Context()
+	//var loci *models.LociResponse
 
 	var req CreateLociReq
+
+	ctx := r.Context()
 
 	userID, err := middleware.GetUserUUIDFromContext(ctx)
 	if err != nil {
@@ -135,12 +136,33 @@ func (h *UserHandler) CreateLoci(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = json.NewDecoder(r.Body).Decode(&loci)
+	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		http.Error(w, "error decoding message from json", http.StatusInternalServerError)
 		return
 	}
+	//validation
+	if req.Message == "" || req.Location.Lat == 0.0 || req.Location.Long == 0.0 || len(req.Message) > 250 {
+		http.Error(w, "invalid data input types,check location points/message length", http.StatusExpectationFailed)
+		return
 
-	//validate message
+	}
+
+	serviceParam := sqlc.CreateLociParams{
+		UserID:   userID,
+		Message:  req.Message,
+		Location: req.Location,
+	}
+
+	//call user service
+	locus, err := h.us.CreateLoci(ctx, userID, serviceParam)
+	if err != nil {
+		http.Error(w, "something happened in the service layer", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Content-Tpe", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&locus)
 
 }
