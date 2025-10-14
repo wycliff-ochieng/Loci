@@ -40,7 +40,8 @@ func ServerWS(h *Hub, w http.ResponseWriter, r *http.Request) {
 		//Location: ,
 	}
 
-	//listen for messages from the client
+	//register new client with the hub
+	client.Hub.Register <- client
 
-	return
+	//start read and write pumps
 }
