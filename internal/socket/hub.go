@@ -3,20 +3,21 @@ package socket
 import (
 	"encoding/json"
 	"log"
+	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/sqlc"
 )
 
+/*
 type Client struct {
 	Hub      *Hub
 	Conn     *websocket.Conn
 	Send     chan []byte
 	UserID   uuid.UUID
 	Location *models.GeoPoint
-}
+} */
 
 type Hub struct {
 	Clients        map[*Client]bool
@@ -94,33 +95,55 @@ func (h *Hub) Run() {
 	}
 }
 
-func (h *Hub) BroadcastNewLoci(locus *sqlc.Loci) {
-	return
-}
+const (
+	writeWait  = 10 * time.Second
+	pingPeriod = (writeWait * 9) / 10
+)
 
-// readPump pumps messages from the websocket connection to the hub
-func (c *Client) ReadPump() {
+func (c *Client) writePump() {
+
+	ticker := time.NewTicker(pingPeriod)
 
 	defer func() {
-		c.Hub.UnRegister <- c //tell hub this client is gone
-		c.Conn.Close()        // close the network connection
+		ticker.Stop()
+		c.Conn.Close()
 	}()
 
 	for {
-		_, message, err := c.Conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %s", err)
+		select {
+		case message, ok := <-c.Send:
+			c.Conn.SetWriteDeadline(time.Now().Add(writeWait))
+
+			if !ok {
+				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
 			}
-			break
-		}
-		//message was successfully read process it, unmarshal it to figure out its type
-		var msg Websocket
-		json.Unmarshal(message, &msg)
 
-		switch msg.Type {
+			w, err := c.Conn.NextWriter(websocket.TextMessage)
+			if err != nil {
+				//handle err
+			}
 
+			w.Write(message)
+
+			for i := 0; i < len(c.Send); i++ {
+				w.Write(<-c.Send)
+			}
+
+			w.Close()
+
+		case <-ticker.C:
+			c.Conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				//handle err
+			}
+			return
 		}
+
 	}
 
+}
+
+func (h *Hub) BroadcastNewLoci(locus *sqlc.Loci) {
+	return
 }
