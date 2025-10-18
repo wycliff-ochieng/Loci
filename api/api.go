@@ -12,6 +12,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/wycliff-ochieng/internal/config"
 	"github.com/wycliff-ochieng/internal/service"
+
+	//"github.com/wycliff-ochieng/internal/socket"
 	"github.com/wycliff-ochieng/internal/store"
 	handlers "github.com/wycliff-ochieng/internal/transport/http"
 	"github.com/wycliff-ochieng/sqlc"
@@ -65,7 +67,12 @@ func (s *Server) Run() {
 	login.HandleFunc("/login", uh.Login)
 
 	getLoci := router.Methods("GET").Subrouter()
-	getLoci.HandleFunc("/api/get/loci/{location}", uh.GetLociInGeoFencedLocation)
+	getLoci.HandleFunc("/api/get/loci/", uh.GetLociInGeoFencedLocation)
+
+	postLoci := router.Methods("POST").Subrouter()
+	postLoci.HandleFunc("/api/post/loci", uh.CreateLoci)
+
+	//http.HandleFunc("/ws",socket.ServerWS)
 
 	if err := http.ListenAndServe(s.addr, router); err != nil {
 		log.Fatalf("rror listening to server: %s", err)
