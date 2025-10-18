@@ -44,4 +44,6 @@ func ServerWS(h *Hub, w http.ResponseWriter, r *http.Request) {
 	client.Hub.Register <- client
 
 	//start read and write pumps
+	go client.ReadPump()
+	go client.WritePump()
 }
