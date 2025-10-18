@@ -25,7 +25,7 @@ SELECT
 FROM
     loci
 WHERE
-    ST_Within(location::geometry, ST_MakeEnvelope($1,$2,$3,$4,$5, 4326))
+    ST_Within(location::geometry, ST_MakeEnvelope($1,$2,$3,$4, 4326))
     AND visibility_score > 0.1
 ORDER BY created_at DESC
 `
@@ -35,7 +35,6 @@ type GetLociInBoundsParams struct {
 	StMakeenvelope_2 interface{}
 	StMakeenvelope_3 interface{}
 	StMakeenvelope_4 interface{}
-	StMakeenvelope_5 interface{}
 }
 
 type GetLociInBoundsRow struct {
@@ -54,7 +53,6 @@ func (q *Queries) GetLociInBounds(ctx context.Context, arg GetLociInBoundsParams
 		arg.StMakeenvelope_2,
 		arg.StMakeenvelope_3,
 		arg.StMakeenvelope_4,
-		arg.StMakeenvelope_5,
 	)
 	if err != nil {
 		return nil, err
