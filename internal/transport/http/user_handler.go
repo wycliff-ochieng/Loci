@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -29,6 +30,12 @@ type RegisterReq struct {
 	Password  string
 }
 
+type LoginReq struct {
+	Email    string
+	Username string
+	Password string
+}
+
 type location struct {
 	Lat  float64
 	Long float64
@@ -38,6 +45,12 @@ type CreateLociReq struct {
 	UserID   uuid.UUID `json:"userID"`
 	Message  string    `json:"message"`
 	Location location  `json:"loaction"`
+}
+
+type AuthenticationResponse struct {
+	User         interface{}
+	AccessToken  string
+	RefreshToken string
 }
 
 func NewUserHandler(l *slog.Logger, us *service.UserService) *UserHandler {
@@ -60,13 +73,14 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if RegisterUser.Username == "" || RegisterUser.Firstname == "" || RegisterUser.Lastname == "" || RegisterUser.Email == "" {
+	if RegisterUser.Username == "" || RegisterUser.Firstname == "" || RegisterUser.Lastname == "" || RegisterUser.Email == "" || RegisterUser.Password == "" {
 		http.Error(w, "some requireed fields are missing values", http.StatusExpectationFailed)
 		return
 	}
 
 	user, err := h.us.Register(ctx, RegisterUser.Username, RegisterUser.Firstname, RegisterUser.Lastname, RegisterUser.Email, RegisterUser.Password)
 	if err != nil {
+		log.Printf("Error due to: %s", err)
 		http.Error(w, "service layer failure: ", http.StatusInternalServerError)
 		return
 	}
@@ -74,6 +88,47 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&user)
+}
+
+func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var req LoginReq
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "error picking up json response", http.StatusInternalServerError)
+		return
+	}
+
+	//validate user input
+	if req.Email == " " || req.Password == " " {
+		http.Error(w, "email or password required", http.StatusExpectationFailed)
+		return
+	}
+
+	//authenticate user (user service transactions)
+	//token, user, err :=
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	token, user, err := h.us.LoginUser(ctx, req.Username, req.Email, req.Password)
+	if err == service.ErrNotFound || err == service.ErrInvalidPassword {
+		log.Printf("error due to: %s", err)
+		http.Error(w, "USER NOT FOUND,INVALID PASSWORD", http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		http.Error(w, "FAILED TO SIGN IN", http.StatusInternalServerError)
+		//h.logger.Info("reason: due to")
+		log.Printf("due to: %s", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(AuthenticationResponse{
+		User:         user,
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+	})
 }
 
 // api :: GET -> api/loci?{SouthWestlat=}&{}&{}&{}
