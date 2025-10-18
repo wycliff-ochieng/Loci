@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/internal/service"
 	"github.com/wycliff-ochieng/pkg/middleware"
@@ -131,7 +130,8 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// api :: GET -> api/loci?{SouthWestlat=}&{}&{}&{}
+// api :: GET -> api/loci?{SouthWestlat=54.21}&{SouthEast}&{}&{}
+// localhost:3000/api/get/loci/?SouthWestlat=30.26&SouthWestLong=-97.75&NorthEastLat=30.27&NorthEastLong=-97.73
 func (h *UserHandler) GetLociInGeoFencedLocation(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("Messages within geofenced location being viewed")
 
@@ -139,17 +139,31 @@ func (h *UserHandler) GetLociInGeoFencedLocation(w http.ResponseWriter, r *http.
 	defer cancel()
 
 	//geeting the radius/ geolocation points from the client
-	vars := mux.Vars(r)
-	SWLatStr := vars["SouthWestlat"]
-	SWLongStr := vars["SouthWestLong"]
-	NELatStr := vars["NorthEastLat"]
-	NELongStr := vars["NorthEastLong"]
+	//vars := mux.Vars(r)
+	//SWLatStr := vars["SouthWestlat"]
+	//SWLongStr := vars["SouthWestLong"]
+	//NELatStr := vars["NorthEastLat"]
+	//NELongStr := vars["NorthEastLong"]
+
+	queryParams := r.URL.Query()
+	SWLatStr := queryParams.Get("SouthWestlat")
+	SWLongStr := queryParams.Get("SouthWestLong")
+	NELatStr := queryParams.Get("NorthEastLat")
+	NELongStr := queryParams.Get("NorthEastLong")
+
+	//log.Println(SWLatStr, SWLongStr, NELatStr, NELongStr)
+	log.Printf("[HANDLER] Received Raw Params: sw_lat=%s, sw_lng=%s, ne_lat=%s, ne_lng=%s",
+		SWLatStr, SWLongStr, NELatStr, NELongStr)
 
 	//parse the string to float
 	SWLat, err1 := strconv.ParseFloat(SWLatStr, 64)
 	SWLong, err2 := strconv.ParseFloat(SWLongStr, 64)
 	NELat, err3 := strconv.ParseFloat(NELatStr, 64)
 	NELong, err4 := strconv.ParseFloat(NELongStr, 64)
+
+	//log.Println(SWLat, SWLong, NELat, NELong)
+	log.Printf("[HANDLER] Parsed Floats: sw_lat=%f, sw_lng=%f, ne_lat=%f, ne_lng=%f",
+		SWLat, SWLong, NELat, NELong)
 
 	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
 		http.Error(w, "Error converting the coordinates to float", http.StatusFailedDependency)
@@ -166,6 +180,7 @@ func (h *UserHandler) GetLociInGeoFencedLocation(w http.ResponseWriter, r *http.
 	//call the service layer
 	AllLoci, err := h.us.GetLociWithinBounds(ctx, box)
 	if err != nil {
+		log.Printf("Failed due to: %s", err)
 		http.Error(w, "some error while fetching loci within the geolocation from the service layer", http.StatusInternalServerError)
 		return
 	}
