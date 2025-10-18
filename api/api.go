@@ -58,11 +58,17 @@ func (s *Server) Run() {
 
 	router := mux.NewRouter()
 
-	test := router.Methods("POST").Subrouter()
-	test.HandleFunc("/register", uh.Register)
+	register := router.Methods("POST").Subrouter()
+	register.HandleFunc("/register", uh.Register)
+
+	login := router.Methods("POST").Subrouter()
+	login.HandleFunc("/login", uh.Login)
+
+	getLoci := router.Methods("GET").Subrouter()
+	getLoci.HandleFunc("/api/get/loci/{location}", uh.GetLociInGeoFencedLocation)
 
 	if err := http.ListenAndServe(s.addr, router); err != nil {
-		fmt.Errorf("rror listening to server: %s", err)
+		log.Fatalf("rror listening to server: %s", err)
 	}
 
 }
