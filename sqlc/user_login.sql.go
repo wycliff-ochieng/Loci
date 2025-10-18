@@ -10,11 +10,16 @@ import (
 )
 
 const login = `-- name: Login :one
-SELECT id,username,firstname,lastname,email,password_hash,created_at FROM Users WHERE email=$1
+SELECT id,username,firstname,lastname,email,password_hash,created_at FROM Users WHERE email=$1 OR username=$2
 `
 
-func (q *Queries) Login(ctx context.Context, email string) (User, error) {
-	row := q.db.QueryRow(ctx, login, email)
+type LoginParams struct {
+	Email    string
+	Username string
+}
+
+func (q *Queries) Login(ctx context.Context, arg LoginParams) (User, error) {
+	row := q.db.QueryRow(ctx, login, arg.Email, arg.Username)
 	var i User
 	err := row.Scan(
 		&i.ID,
