@@ -31,10 +31,10 @@ type LociResponse struct {
 type Locus struct {
 	ID         uuid.UUID
 	UserID     uuid.UUID
-	message    string
-	location   float64
-	createdat  time.Time
-	viewscount int64
+	Message    string
+	Location   GeoPoint
+	Createdat  time.Time
+	Viewscount int64
 }
 
 type BoundBox struct {
@@ -81,6 +81,10 @@ func NewUser(id int, username string, firstname string, lastname string, email s
 
 func (u *User) ComparePassword(password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+}
+
+func ComparePassword(harshedPassword string, password string) error {
+	return bcrypt.CompareHashAndPassword([]byte(harshedPassword), []byte(password))
 }
 
 const (
