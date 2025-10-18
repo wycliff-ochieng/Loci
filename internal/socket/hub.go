@@ -7,7 +7,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/wycliff-ochieng/internal/models"
-	"github.com/wycliff-ochieng/sqlc"
 )
 
 /*
@@ -18,6 +17,12 @@ type Client struct {
 	UserID   uuid.UUID
 	Location *models.GeoPoint
 } */
+
+const (
+	writeWait  = 10 * time.Second
+	pingPeriod = (writeWait * 9) / 10
+	pongWait   = 10 * time.Second
+)
 
 type Hub struct {
 	Clients        map[*Client]bool
@@ -95,12 +100,7 @@ func (h *Hub) Run() {
 	}
 }
 
-const (
-	writeWait  = 10 * time.Second
-	pingPeriod = (writeWait * 9) / 10
-)
-
-func (c *Client) writePump() {
+func (c *Client) WritePump() {
 
 	ticker := time.NewTicker(pingPeriod)
 
@@ -144,6 +144,6 @@ func (c *Client) writePump() {
 
 }
 
-func (h *Hub) BroadcastNewLoci(locus *sqlc.Loci) {
-	return
+func (h *Hub) BroadcastNewLoci(locus *models.Locus) {
+	h.BroadcastLocus <- locus
 }
