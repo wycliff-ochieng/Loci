@@ -13,7 +13,8 @@ type TokenPair struct {
 	RefreshToken string `json:"refreshtoken"`
 }
 
-var secret = []byte("Secret")
+var JWTsecret = []byte("Secret")
+var Refreshsecret = []byte("refreshSecret")
 
 func GenerateToken(userID uuid.UUID, email string, secret string, expiry time.Duration) (string, error) {
 
