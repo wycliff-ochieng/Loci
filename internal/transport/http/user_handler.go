@@ -36,8 +36,8 @@ type LoginReq struct {
 }
 
 type location struct {
-	Lat  float64
-	Long float64
+	Lat  float64 `json:"lat"`
+	Long float64 `json:"long"`
 }
 
 type CreateLociReq struct {
@@ -202,6 +202,7 @@ func (h *UserHandler) CreateLoci(w http.ResponseWriter, r *http.Request) {
 
 	userID, err := middleware.GetUserUUIDFromContext(ctx)
 	if err != nil {
+		log.Printf("no id due to: %v", err)
 		http.Error(w, "Could get userID from context", http.StatusExpectationFailed)
 		return
 	}
@@ -219,9 +220,11 @@ func (h *UserHandler) CreateLoci(w http.ResponseWriter, r *http.Request) {
 	}
 
 	serviceParam := sqlc.CreateLociParams{
-		UserID:   userID,
-		Message:  req.Message,
-		Location: req.Location,
+		UserID:        userID,
+		Message:       req.Message,
+		StMakepoint:   req.Location.Lat,
+		StMakepoint_2: req.Location.Long,
+		//Location: req.Location,
 	}
 
 	//call user service
