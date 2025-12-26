@@ -5,7 +5,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/wycliff-ochieng/internal/models"
 )
 
@@ -35,6 +34,10 @@ type Hub struct {
 type Websocket struct {
 	Type    string      `json:"type"`
 	Payload interface{} `json:"payload"`
+}
+
+func NewHub() *Hub {
+	return &Hub{}
 }
 
 func (h *Hub) Run() {
@@ -100,6 +103,7 @@ func (h *Hub) Run() {
 	}
 }
 
+/*
 func (c *Client) WritePump() {
 
 	ticker := time.NewTicker(pingPeriod)
@@ -143,7 +147,7 @@ func (c *Client) WritePump() {
 	}
 
 }
-
+*/
 func (h *Hub) BroadcastNewLoci(locus *models.Locus) {
 	h.BroadcastLocus <- locus
 }
