@@ -7,35 +7,65 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 const createLoci = `-- name: CreateLoci :many
 INSERT INTO loci(
+    id,
     user_id,
     message,
     location )
 VALUES
-    ($1,$2,$3) 
-RETURNING id, user_id, message, location, created_at, view_count, replies_count, visibility_score
+    ($1,$2,$3,
+    ST_MakePoint($4, $5)::geography) 
+RETURNING
+    id, 
+    user_id, 
+    message, 
+    ST_AsText(location) AS location, -- This converts binary geography to string
+    created_at, 
+    view_count, 
+    replies_count, 
+    visibility_score
 `
 
 type CreateLociParams struct {
-	UserID   uuid.UUID
-	Message  string
-	Location interface{}
+	ID            uuid.UUID
+	UserID        uuid.UUID
+	Message       string
+	StMakepoint   interface{}
+	StMakepoint_2 interface{}
 }
 
-func (q *Queries) CreateLoci(ctx context.Context, arg CreateLociParams) ([]Loci, error) {
-	rows, err := q.db.Query(ctx, createLoci, arg.UserID, arg.Message, arg.Location)
+type CreateLociRow struct {
+	ID              uuid.UUID
+	UserID          uuid.UUID
+	Message         string
+	Location        interface{}
+	CreatedAt       time.Time
+	ViewCount       int32
+	RepliesCount    int32
+	VisibilityScore float64
+}
+
+func (q *Queries) CreateLoci(ctx context.Context, arg CreateLociParams) ([]CreateLociRow, error) {
+	rows, err := q.db.Query(ctx, createLoci,
+		arg.ID,
+		arg.UserID,
+		arg.Message,
+		arg.StMakepoint,
+		arg.StMakepoint_2,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Loci
+	var items []CreateLociRow
 	for rows.Next() {
-		var i Loci
+		var i CreateLociRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
