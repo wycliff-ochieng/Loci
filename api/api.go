@@ -14,6 +14,7 @@ import (
 	"github.com/wycliff-ochieng/internal/config"
 	"github.com/wycliff-ochieng/internal/limitter"
 	"github.com/wycliff-ochieng/internal/service"
+	"github.com/wycliff-ochieng/internal/socket"
 	"github.com/wycliff-ochieng/pkg/middleware"
 
 	//"github.com/wycliff-ochieng/internal/socket"
@@ -70,7 +71,12 @@ func (s *Server) Run() {
 
 	authMiddleware := middleware.AuthenticationMiddleware(s.cfg.JWTsecret)
 
-	us := service.NewUserService(db, *queries, rtl)
+	//initialize hub
+	hub := socket.NewHub()
+
+	go hub.Run()
+
+	us := service.NewUserService(db, *queries, rtl, hub)
 
 	//handler
 	uh := handlers.NewUserHandler(logger, us)
