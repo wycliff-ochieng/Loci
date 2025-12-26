@@ -8,12 +8,15 @@ import (
 )
 
 type Config struct {
-	DB_HOST     string
-	DB_PASSWORD string
-	DB_PORT     int64
-	DB_NAME     string
-	DB_USER     string
-	DB_SSLMODE  string
+	DB_HOST        string
+	DB_PASSWORD    string
+	DB_PORT        int64
+	DB_NAME        string
+	DB_USER        string
+	DB_SSLMODE     string
+	JWTsecret      string
+	REDIS_ADDR     string
+	REDIS_PASSWORD string
 }
 
 func Load() (*Config, error) {
@@ -28,6 +31,9 @@ func Load() (*Config, error) {
 	config.DB_PORT = int64(getEnvAsInt("DB_PORT", 5432))
 	config.DB_USER = getEnv("DB_USER", "admin")
 	config.DB_SSLMODE = getEnv("DB_SSLMODE", "disable")
+	config.JWTsecret = getEnv("JWTSecret", "mydogiscalledrufus")
+	config.REDIS_ADDR = getEnv("REDIS_ADDR", "localhost:6379")
+	config.REDIS_PASSWORD = getEnv("REDIS_PASSWORD", "secretpassword")
 
 	return config, nil
 }
