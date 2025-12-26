@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Loci struct {
@@ -19,6 +20,20 @@ type Loci struct {
 	ViewCount       int32
 	RepliesCount    int32
 	VisibilityScore float64
+}
+
+type LocusView struct {
+	UserID   uuid.UUID
+	LocusID  uuid.UUID
+	ViewedAt pgtype.Timestamp
+}
+
+type Reply struct {
+	ID        uuid.UUID
+	LocusID   uuid.UUID
+	UserID    uuid.UUID
+	Content   string
+	CreatedAt pgtype.Timestamptz
 }
 
 type User struct {

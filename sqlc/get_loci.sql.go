@@ -7,16 +7,13 @@ package sqlc
 
 import (
 	"context"
-	"time"
-
-	"github.com/google/uuid"
 )
 
 const getLociInBounds = `-- name: GetLociInBounds :many
 SELECT
     id,
     user_id,
-    message
+    message,
     location,
     created_at,
     view_count,
@@ -26,7 +23,7 @@ FROM
     loci
 WHERE
     ST_Within(location::geometry, ST_MakeEnvelope($1,$2,$3,$4, 4326))
-    AND visibility_score > 0.1
+    AND visibility_score >= 0.0
 ORDER BY created_at DESC
 `
 
@@ -37,17 +34,7 @@ type GetLociInBoundsParams struct {
 	StMakeenvelope_4 interface{}
 }
 
-type GetLociInBoundsRow struct {
-	ID              uuid.UUID
-	UserID          uuid.UUID
-	Location        string
-	CreatedAt       time.Time
-	ViewCount       int32
-	RepliesCount    int32
-	VisibilityScore float64
-}
-
-func (q *Queries) GetLociInBounds(ctx context.Context, arg GetLociInBoundsParams) ([]GetLociInBoundsRow, error) {
+func (q *Queries) GetLociInBounds(ctx context.Context, arg GetLociInBoundsParams) ([]Loci, error) {
 	rows, err := q.db.Query(ctx, getLociInBounds,
 		arg.StMakeenvelope,
 		arg.StMakeenvelope_2,
@@ -58,12 +45,13 @@ func (q *Queries) GetLociInBounds(ctx context.Context, arg GetLociInBoundsParams
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetLociInBoundsRow
+	var items []Loci
 	for rows.Next() {
-		var i GetLociInBoundsRow
+		var i Loci
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
+			&i.Message,
 			&i.Location,
 			&i.CreatedAt,
 			&i.ViewCount,
