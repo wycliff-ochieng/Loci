@@ -10,8 +10,11 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/redis/go-redis/v9"
 	"github.com/wycliff-ochieng/internal/config"
+	"github.com/wycliff-ochieng/internal/limitter"
 	"github.com/wycliff-ochieng/internal/service"
+	"github.com/wycliff-ochieng/pkg/middleware"
 
 	//"github.com/wycliff-ochieng/internal/socket"
 	"github.com/wycliff-ochieng/internal/store"
@@ -51,9 +54,23 @@ func (s *Server) Run() {
 		log.Printf("Error: %s", err)
 	}
 
+	rclt := redis.NewClient(&redis.Options{
+		Addr:     s.cfg.REDIS_ADDR,
+		Password: s.cfg.REDIS_PASSWORD,
+		DB:       0,
+	})
+
+	wdw := 60 * time.Second
+
+	lim := int16(20)
+
+	rtl := limitter.NewRedisLimitter(rclt, wdw, lim)
+
 	queries := sqlc.New(db)
 
-	us := service.NewUserService(db, *queries)
+	authMiddleware := middleware.AuthenticationMiddleware(s.cfg.JWTsecret)
+
+	us := service.NewUserService(db, *queries, rtl)
 
 	//handler
 	uh := handlers.NewUserHandler(logger, us)
@@ -68,9 +85,11 @@ func (s *Server) Run() {
 
 	getLoci := router.Methods("GET").Subrouter()
 	getLoci.HandleFunc("/api/get/loci/", uh.GetLociInGeoFencedLocation)
+	getLoci.Use(authMiddleware)
 
 	postLoci := router.Methods("POST").Subrouter()
 	postLoci.HandleFunc("/api/post/loci", uh.CreateLoci)
+	postLoci.Use(authMiddleware)
 
 	//http.HandleFunc("/ws",socket.ServerWS)
 
