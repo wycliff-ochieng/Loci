@@ -139,7 +139,7 @@ func (us *UserService) LoginUser(ctx context.Context, username string, email str
 
 }
 
-func (us *UserService) GetLociWithinBounds(ctx context.Context, bounds models.BoundBox) ([]sqlc.GetLociInBoundsRow, error) {
+func (us *UserService) GetLociWithinBounds(ctx context.Context, bounds models.BoundBox) ([]sqlc.Loci, error) {
 	log.Println("Database operation in motion")
 
 	log.Printf("[SERVICE] Received BoundingBox: %+v", bounds)
@@ -158,7 +158,7 @@ func (us *UserService) GetLociWithinBounds(ctx context.Context, bounds models.Bo
 
 }
 
-func (us *UserService) CreateLoci(ctx context.Context, userID uuid.UUID, params sqlc.CreateLociParams) ([]sqlc.Loci, error) {
+func (us *UserService) CreateLoci(ctx context.Context, userID uuid.UUID, params sqlc.CreateLociParams) ([]sqlc.CreateLociRow, error) {
 
 	//message := "test message"
 	//location :=
@@ -178,8 +178,10 @@ func (us *UserService) CreateLoci(ctx context.Context, userID uuid.UUID, params 
 	}
 
 	//content moderation logic -> check if message contains only allowed words
+	newUserID := uuid.New()
 
 	dbparams := sqlc.CreateLociParams{
+		ID:            newUserID,
 		UserID:        params.UserID,
 		Message:       params.Message,
 		StMakepoint:   params.StMakepoint,
