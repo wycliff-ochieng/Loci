@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -28,14 +29,14 @@ func AuthenticationMiddleware(jwtSecret string) func(next http.Handler) http.Han
 				return
 			}
 
-			tokenString := strings.TrimPrefix(authHeader, "Bearer")
+			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 			if tokenString == authHeader || tokenString == "" {
 				http.Error(w, "invalid token", http.StatusFailedDependency)
 				return
 			}
 
 			//parse and validate token using shared Claims
-			token, err := jwt.ParseWithClaims(tokenString, auth.Claims{}, func(token *jwt.Token) (interface{}, error) {
+			token, err := jwt.ParseWithClaims(tokenString, &auth.Claims{}, func(token *jwt.Token) (interface{}, error) {
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, fmt.Errorf("unexpected signing method, %s", token.Header["alg"])
 				}
@@ -43,6 +44,7 @@ func AuthenticationMiddleware(jwtSecret string) func(next http.Handler) http.Han
 			})
 
 			if err != nil || !token.Valid {
+				log.Printf("Token Issue: %s", err)
 				http.Error(w, "issue with token", http.StatusExpectationFailed)
 				return
 			}
@@ -59,7 +61,7 @@ func AuthenticationMiddleware(jwtSecret string) func(next http.Handler) http.Han
 }
 
 //get USerID from context
-
+/*
 func GetUserUUIDFromContext(ctx context.Context) (uuid.UUID, error) {
 	userUUIDStr, ok := ctx.Value(UserIDKey).(string)
 	if !ok {
@@ -75,6 +77,15 @@ func GetUserUUIDFromContext(ctx context.Context) (uuid.UUID, error) {
 	}
 
 	return parsedUUID, nil
+}
+*/
+func GetUserUUIDFromContext(ctx context.Context) (uuid.UUID, error) {
+	userUUID, ok := ctx.Value(UserIDKey).(uuid.UUID)
+	if !ok {
+		return uuid.Nil, errors.New("userID not found in context")
+	}
+
+	return userUUID, nil
 }
 
 //RBAC if required
