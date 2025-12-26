@@ -41,10 +41,11 @@ var (
 	ErrInvalidPassword = errors.New("wrong password input")
 )
 
-func NewUserService(db *store.Postgis, query sqlc.Queries) *UserService {
+func NewUserService(db *store.Postgis, query sqlc.Queries, rtl *limitter.RedisLimitter) *UserService {
 	return &UserService{
 		db:    db,
 		query: query,
+		rtl:   rtl,
 	}
 }
 
@@ -53,6 +54,7 @@ func (us *UserService) Register(ctx context.Context, username string, firstname 
 
 	exist, err := us.query.UserExists(ctx, email)
 	if err != nil {
+		log.Printf("User Exists Error: %s", err)
 		return nil, err
 	}
 
@@ -62,6 +64,7 @@ func (us *UserService) Register(ctx context.Context, username string, firstname 
 
 	harshedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
+		log.Printf("Generate password error: %s", err)
 		return nil, err
 	}
 
