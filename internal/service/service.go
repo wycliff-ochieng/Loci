@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/wycliff-ochieng/internal/limitter"
 	"github.com/wycliff-ochieng/internal/models"
+	"github.com/wycliff-ochieng/internal/socket"
 	"github.com/wycliff-ochieng/internal/store"
 	"github.com/wycliff-ochieng/pkg/auth"
 	"golang.org/x/crypto/bcrypt"
@@ -23,6 +24,7 @@ type UserService struct {
 	db    *store.Postgis
 	query sqlc.Queries
 	rtl   *limitter.RedisLimitter
+	hub   *socket.Hub
 	//lc sqlc.CreateLociParams
 	//uh http.UserHandler
 }
@@ -41,11 +43,12 @@ var (
 	ErrInvalidPassword = errors.New("wrong password input")
 )
 
-func NewUserService(db *store.Postgis, query sqlc.Queries, rtl *limitter.RedisLimitter) *UserService {
+func NewUserService(db *store.Postgis, query sqlc.Queries, rtl *limitter.RedisLimitter, hub *socket.Hub) *UserService {
 	return &UserService{
 		db:    db,
 		query: query,
 		rtl:   rtl,
+		hub:   hub,
 	}
 }
 
@@ -195,6 +198,23 @@ func (us *UserService) CreateLoci(ctx context.Context, userID uuid.UUID, params 
 	}
 
 	//delegeation to websocket
+	//trigger real time broadcast
+	if len(loci) > 0 {
+		row := loci[0]
+
+		//convert sqlc row to shared schema(models)
+		newLoci := &models.Locus{
+			ID:         row.ID,
+			UserID:     row.UserID,
+			Message:    row.Message,
+			Location:   models.GeoPoint{},
+			Createdat:  row.CreatedAt,
+			Viewscount: int64(row.ViewCount),
+		}
+
+		//push loci to hub
+		us.hub.BroadcastLocus <- newLoci
+	}
 
 	return loci, nil
 }
