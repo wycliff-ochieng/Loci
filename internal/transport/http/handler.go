@@ -54,6 +54,11 @@ type AuthenticationResponse struct {
 	RefreshToken string
 }
 
+type ReplyReq struct {
+	UserID  uuid.UUID
+	Content string
+}
+
 func NewUserHandler(l *slog.Logger, us *service.UserService) *UserHandler {
 	return &UserHandler{
 		logger: l,
@@ -284,4 +289,45 @@ func (h *UserHandler) ViewLociHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) ReplyToLociHandler(w http.ResponseWriter, r *http.Request) {
 	//reply to a message, count replies
+
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+
+	var req *ReplyReq
+
+	locusIDStr := vars["locus_id"]
+
+	locusID, err := uuid.Parse(locusIDStr)
+	if err != nil {
+		fmt.Errorf("failed to parse and convert to string: %w", err)
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "error picking up json response", http.StatusInternalServerError)
+		return
+	}
+
+	userID, err := middleware.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "failed to get USerID OR issue with middleware", http.StatusExpectationFailed)
+		return
+	}
+
+	//validation checks
+	if req.Content == "" {
+		http.Error(w, "empty messages/replies not allowed", http.StatusExpectationFailed)
+		//return
+	}
+
+	//call service layer
+	reply, err := h.us.ReplyLoci(ctx, userID, locusID, req.Content)
+	if err != nil {
+		http.Error(w, "Service layer database Operation hitch", http.StatusFailedDependency)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&reply)
 }
