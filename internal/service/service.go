@@ -262,6 +262,10 @@ func (us *UserService) RecordView(ctx context.Context, userID uuid.UUID, locusID
 		return nil, err
 	}
 
+	if err := txs.Commit(ctx); err != nil {
+		log.Printf("failed committing to the database due: %s", err)
+	}
+
 	return &models.View{
 		UserID:   locusView.UserID,
 		LocusID:  locusView.LocusID,
