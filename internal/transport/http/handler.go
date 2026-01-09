@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/internal/service"
 	"github.com/wycliff-ochieng/pkg/middleware"
@@ -239,4 +241,47 @@ func (h *UserHandler) CreateLoci(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&locus)
 
+}
+
+func (h *UserHandler) ViewLociHandler(w http.ResponseWriter, r *http.Request) {
+	//viewing a post , count views
+
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+
+	locusIDStr := vars["id"]
+
+	locusID, err := uuid.Parse(locusIDStr)
+	if err != nil {
+		fmt.Errorf("ERROR: failed converting ID to uuid")
+	}
+
+	userID, err := middleware.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "failed to fetch userID from context", http.StatusExpectationFailed)
+		return
+	}
+
+	//validation checks (is userID and locusID valid uuids)
+	if err := uuid.Validate(locusIDStr); err == nil {
+		log.Println("valid loci ID")
+		return
+	}
+
+	//call service layer
+	view, err := h.us.RecordView(ctx, userID, locusID)
+	if err != nil {
+		http.Error(w, "Error recording view in service error", http.StatusFailedDependency)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&view)
+
+}
+
+func (h *UserHandler) ReplyToLociHandler(w http.ResponseWriter, r *http.Request) {
+	//reply to a message, count replies
 }
