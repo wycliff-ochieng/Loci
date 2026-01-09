@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/wycliff-ochieng/internal/limitter"
 	"github.com/wycliff-ochieng/internal/models"
 	"github.com/wycliff-ochieng/internal/socket"
@@ -221,4 +222,49 @@ func (us *UserService) CreateLoci(ctx context.Context, userID uuid.UUID, params 
 
 func generateRedisKey(action RateLimitAction, identifier string) string {
 	return fmt.Sprintf("ratelimit:%s:%s", action, identifier)
+}
+
+func (us *UserService) RecordView(ctx context.Context, userID uuid.UUID, locusID uuid.UUID) (*models.View, error) {
+
+	//start transaction
+	txs, err := us.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		log.Printf("failed to set up transactions with pgx: %s", err)
+	}
+
+	defer txs.Rollback(ctx)
+
+	qtx := us.query.WithTx(txs)
+
+	viewValues := sqlc.CreateViewParams{
+		UserID:  userID,
+		LocusID: locusID,
+	}
+
+	/*locusView, err := us.query.CreateView(ctx, viewValues)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return
+		}
+		return err
+	}*/
+
+	locusView, err := qtx.CreateView(ctx, viewValues)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return &models.View{}, nil
+		}
+		return nil, err
+	}
+
+	err = qtx.IncrementViewCount(ctx, locusView.LocusID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.View{
+		UserID:   locusView.UserID,
+		LocusID:  locusView.LocusID,
+		ViewedAT: time.Now().Local(),
+	}, err
 }
