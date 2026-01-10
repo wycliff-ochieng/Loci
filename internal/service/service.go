@@ -272,3 +272,68 @@ func (us *UserService) RecordView(ctx context.Context, userID uuid.UUID, locusID
 		ViewedAT: time.Now().Local(),
 	}, err
 }
+
+func (us *UserService) ReplyLoci(ctx context.Context, userID uuid.UUID, locusID uuid.UUID, message string) (*models.Reply, error) {
+
+	txs, err := us.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		log.Println("Failed to initialize transaction object")
+	}
+
+	defer txs.Rollback(ctx)
+
+	qtx := us.query.WithTx(txs)
+
+	//insert reply into reply table and increment count
+	replyParams := sqlc.CreateReplyParams{
+		LocusID: locusID,
+		UserID:  userID,
+		Content: message,
+	}
+	reply, err := qtx.CreateReply(ctx, replyParams)
+	if err != nil {
+		log.Printf("Failed to create and insert reply into database due to: %s", err)
+	}
+
+	err = qtx.IncrementReplyCount(ctx, reply.ID)
+	if err != nil {
+		log.Printf("failed to increment reply count for Loci: %s", err)
+	}
+
+	broadCastReply, err := qtx.GetReplyForBroadcast(ctx, locusID)
+	if err != nil {
+		log.Printf("failed to get Loci due to: %s", err)
+	}
+
+	if err := txs.Commit(ctx); err != nil {
+		log.Printf("Committing ReplyCount transaction failure: %s", err)
+	}
+
+	event := &models.ReplyEvent{
+		ReplyID:  broadCastReply.ID,
+		LocusID:  reply.LocusID,
+		UserName: broadCastReply.Username,
+		LocusLocation: models.GeoPoint{
+			Lat:  broadCastReply.Lat,
+			Long: broadCastReply.Long,
+		},
+		CreatedAt: broadCastReply.CreatedAt.Time,
+	}
+
+	us.hub.BroadcastReply <- event
+
+	/*us.hub.BroadcastReply <- &models.ReplyEvent{
+		ReplyID:  uuid.New(),
+		LocusID:  reply.LocusID,
+		UserName: reply.UserID.String(),
+		//LocusLocation: ,
+	}*/
+
+	return &models.Reply{
+		ReplyID:   reply.ID,
+		LocusID:   reply.LocusID,
+		UserID:    reply.UserID,
+		Content:   reply.Content,
+		CreatedAT: reply.CreatedAt.Time,
+	}, nil
+}
