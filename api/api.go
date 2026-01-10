@@ -97,7 +97,17 @@ func (s *Server) Run() {
 	postLoci.HandleFunc("/api/post/loci", uh.CreateLoci)
 	postLoci.Use(authMiddleware)
 
-	//http.HandleFunc("/ws",socket.ServerWS)
+	viewLoci := router.Methods("POST").Subrouter()
+	viewLoci.HandleFunc("/api/loci/{id}/view", uh.ViewLociHandler)
+	viewLoci.Use(authMiddleware)
+
+	replyLoci := router.Methods("POST").Subrouter()
+	replyLoci.HandleFunc("/api/loci/{id}/reply", uh.ReplyToLociHandler)
+	replyLoci.Use(authMiddleware)
+
+	router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		socket.ServerWS(hub, w, r)
+	})
 
 	if err := http.ListenAndServe(s.addr, router); err != nil {
 		log.Fatalf("rror listening to server: %s", err)
