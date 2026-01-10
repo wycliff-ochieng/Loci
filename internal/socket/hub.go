@@ -29,6 +29,7 @@ type Hub struct {
 	UnRegister     chan *Client
 	Broadcast      chan []byte
 	BroadcastLocus chan *models.Locus
+	BroadcastReply chan *models.ReplyEvent
 }
 
 type Websocket struct {
@@ -98,8 +99,45 @@ func (h *Hub) Run() {
 					}
 				}
 			}
-		}
+		case reply := <-h.BroadcastReply:
 
+			replyEvent := Websocket{
+				Type:    "REPLY_EVENT",
+				Payload: reply,
+			}
+
+			marshalledReply, err := json.Marshal(replyEvent)
+			if err != nil {
+				log.Printf("Error marshalling reply  due to: %s", err)
+				continue
+			}
+
+			//clients location
+			for c := range h.Clients {
+				if c.Location == nil {
+					continue
+				}
+
+				replyLocation := &models.GeoPoint{
+					Lat:  reply.LocusLocation.Lat,
+					Long: reply.LocusLocation.Long,
+				}
+
+				dist := models.CalculateDistance(c.Location, replyLocation)
+
+				const replyBroadcastDistance = 5000
+
+				if dist < replyBroadcastDistance {
+					select {
+					case c.Send <- marshalledReply:
+					default:
+						close(c.Send)
+						delete(h.Clients, c)
+					}
+				}
+			}
+
+		}
 	}
 }
 
