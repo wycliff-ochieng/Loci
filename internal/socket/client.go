@@ -1,8 +1,6 @@
 package socket
 
 import (
-	"bytes"
-	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"log"
@@ -52,17 +50,13 @@ func (c *Client) ReadPump() {
 
 			var loc models.GeoPoint
 
-			var buf bytes.Buffer
-
-			enc := gob.NewEncoder(&buf)
-
-			err := enc.Encode(msg.Payload)
+			data, err := json.Marshal(msg.Payload)
 			if err != nil {
-				log.Printf("djjd%s", err)
-
+				log.Printf("Error: failed to marshal payload %s", err)
+				break
 			}
 
-			if err := json.Unmarshal(buf.Bytes(), &loc); err != nil {
+			if err := json.Unmarshal(data, &loc); err != nil {
 				log.Printf("failed to unmarshal due to : %v", err)
 				break
 			}

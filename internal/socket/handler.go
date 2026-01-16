@@ -17,19 +17,19 @@ func ServerWS(h *Hub, w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
+	userID, err := middleware.GetUserUUIDFromContext(ctx)
+	if err != nil {
+		http.Error(w, "Error fetching ID from context", http.StatusUnauthorized)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		http.Error(w, "Error: upgrading issue due to: %s", http.StatusFailedDependency)
 		return
 	}
 
-	defer conn.Close()
-
-	userID, err := middleware.GetUserUUIDFromContext(ctx)
-	if err != nil {
-		http.Error(w, "Error fetching ID from context", http.StatusExpectationFailed)
-		return
-	}
+	//defer conn.Close()
 
 	//create a client instance
 	client := &Client{

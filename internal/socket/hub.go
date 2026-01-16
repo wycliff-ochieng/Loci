@@ -38,7 +38,14 @@ type Websocket struct {
 }
 
 func NewHub() *Hub {
-	return &Hub{}
+	return &Hub{
+		Broadcast:      make(chan []byte),
+		Register:       make(chan *Client),
+		UnRegister:     make(chan *Client),
+		Clients:        make(map[*Client]bool),
+		BroadcastLocus: make(chan *models.Locus),
+		BroadcastReply: make(chan *models.ReplyEvent),
+	}
 }
 
 func (h *Hub) Run() {
@@ -46,19 +53,16 @@ func (h *Hub) Run() {
 	for {
 		select {
 		case client := <-h.Register:
-			//map[*Client] bool = client -> add client to map
 			h.Clients[client] = true
+			log.Printf("[HUB] Client registered. Total clients: %d", len(h.Clients))
 
 		case client := <-h.UnRegister:
-			//check if client exists in the map
 			if _, ok := h.Clients[client]; ok {
-
-				//delete if present then close
 				delete(h.Clients, client)
-
 				close(client.Send)
-
+				log.Printf("[HUB] Client unregistered. Total clients: %d", len(h.Clients))
 			}
+
 		case locus := <-h.BroadcastLocus:
 			//prepare outbound message
 			message := Websocket{
@@ -100,6 +104,7 @@ func (h *Hub) Run() {
 				}
 			}
 		case reply := <-h.BroadcastReply:
+			log.Printf("[HUB] Received Reply Event for Locus: %s. Processing for %d clients...", reply.LocusID, len(h.Clients))
 
 			replyEvent := Websocket{
 				Type:    "REPLY_EVENT",
@@ -115,6 +120,7 @@ func (h *Hub) Run() {
 			//clients location
 			for c := range h.Clients {
 				if c.Location == nil {
+					log.Println("[HUB] Skipping client: Location is nil")
 					continue
 				}
 
@@ -124,6 +130,7 @@ func (h *Hub) Run() {
 				}
 
 				dist := models.CalculateDistance(c.Location, replyLocation)
+				log.Printf("[HUB] Client Dist: %.2f km. (Limit: 5000km)", dist)
 
 				const replyBroadcastDistance = 5000
 
