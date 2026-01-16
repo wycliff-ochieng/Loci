@@ -3,7 +3,6 @@ package http
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -259,18 +258,13 @@ func (h *UserHandler) ViewLociHandler(w http.ResponseWriter, r *http.Request) {
 
 	locusID, err := uuid.Parse(locusIDStr)
 	if err != nil {
-		fmt.Errorf("ERROR: failed converting ID to uuid")
+		http.Error(w, "Invalid locus ID format", http.StatusBadRequest)
+		return
 	}
 
 	userID, err := middleware.GetUserUUIDFromContext(ctx)
 	if err != nil {
 		http.Error(w, "failed to fetch userID from context", http.StatusExpectationFailed)
-		return
-	}
-
-	//validation checks (is userID and locusID valid uuids)
-	if err := uuid.Validate(locusIDStr); err == nil {
-		log.Println("valid loci ID")
 		return
 	}
 
@@ -296,11 +290,12 @@ func (h *UserHandler) ReplyToLociHandler(w http.ResponseWriter, r *http.Request)
 
 	var req *ReplyReq
 
-	locusIDStr := vars["locus_id"]
+	locusIDStr := vars["id"]
 
 	locusID, err := uuid.Parse(locusIDStr)
 	if err != nil {
-		fmt.Errorf("failed to parse and convert to string: %w", err)
+		http.Error(w, "Invalid locus ID format", http.StatusBadRequest)
+		return
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
