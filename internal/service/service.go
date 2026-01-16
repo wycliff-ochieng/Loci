@@ -203,18 +203,21 @@ func (us *UserService) CreateLoci(ctx context.Context, userID uuid.UUID, params 
 	if len(loci) > 0 {
 		row := loci[0]
 
-		location, ok := row.Location.(models.GeoPoint)
+		/*location, ok := row.Location.(models.GeoPoint)
 		if !ok {
 			log.Printf("Warning: Could not assert Location to Geopoint")
 			location = models.GeoPoint{}
-		}
+		}*/
 
 		//convert sqlc row to shared schema(models)
 		newLoci := &models.Locus{
-			ID:         row.ID,
-			UserID:     row.UserID,
-			Message:    row.Message,
-			Location:   location,
+			ID:      row.ID,
+			UserID:  row.UserID,
+			Message: row.Message,
+			Location: models.GeoPoint{
+				Lat:  row.Lat,
+				Long: row.Long,
+			},
 			Createdat:  row.CreatedAt,
 			Viewscount: int64(row.ViewCount),
 		}
@@ -306,7 +309,8 @@ func (us *UserService) ReplyLoci(ctx context.Context, userID uuid.UUID, locusID 
 		log.Printf("failed to increment reply count for Loci: %s", err)
 	}
 
-	broadCastReply, err := qtx.GetReplyForBroadcast(ctx, locusID)
+	// FIX: Use reply.ID, not locusID
+	broadCastReply, err := qtx.GetReplyForBroadcast(ctx, reply.ID)
 	if err != nil {
 		log.Printf("failed to get Loci due to: %s", err)
 	}
