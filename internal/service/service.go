@@ -203,12 +203,18 @@ func (us *UserService) CreateLoci(ctx context.Context, userID uuid.UUID, params 
 	if len(loci) > 0 {
 		row := loci[0]
 
+		location, ok := row.Location.(models.GeoPoint)
+		if !ok {
+			log.Printf("Warning: Could not assert Location to Geopoint")
+			location = models.GeoPoint{}
+		}
+
 		//convert sqlc row to shared schema(models)
 		newLoci := &models.Locus{
 			ID:         row.ID,
 			UserID:     row.UserID,
 			Message:    row.Message,
-			Location:   models.GeoPoint{},
+			Location:   location,
 			Createdat:  row.CreatedAt,
 			Viewscount: int64(row.ViewCount),
 		}
