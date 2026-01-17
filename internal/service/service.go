@@ -143,12 +143,12 @@ func (us *UserService) LoginUser(ctx context.Context, username string, email str
 
 }
 
-func (us *UserService) GetLociWithinBounds(ctx context.Context, bounds models.BoundBox) ([]sqlc.Loci, error) {
+func (us *UserService) GetLociWithinBounds(ctx context.Context, bounds models.BoundBox) ([]models.Locus, error) {
 	log.Println("Database operation in motion")
 
 	log.Printf("[SERVICE] Received BoundingBox: %+v", bounds)
 
-	messages, err := us.query.GetLociInBounds(ctx, sqlc.GetLociInBoundsParams{
+	rows, err := us.query.GetLociInBounds(ctx, sqlc.GetLociInBoundsParams{
 		StMakeenvelope:   bounds.SouthWestLong,
 		StMakeenvelope_2: bounds.SouthWestLat,
 		StMakeenvelope_3: bounds.NorthEastLong,
@@ -158,8 +158,23 @@ func (us *UserService) GetLociWithinBounds(ctx context.Context, bounds models.Bo
 		return nil, err
 	}
 
-	return messages, nil
+	loci := make([]models.Locus, 0, len(rows))
+	for _, r := range rows {
+		loci = append(loci, models.Locus{
+			ID:      r.ID,
+			UserID:  r.UserID,
+			Message: r.Message,
+			Location: models.GeoPoint{
+				Lat:  r.Lat,
+				Long: r.Long,
+			},
+			Createdat:    r.CreatedAt,
+			Viewscount:   int64(r.ViewCount),
+			Repliescount: int64(r.RepliesCount),
+		})
+	}
 
+	return loci, nil
 }
 
 func (us *UserService) CreateLoci(ctx context.Context, userID uuid.UUID, params sqlc.CreateLociParams) ([]sqlc.CreateLociRow, error) {
@@ -218,8 +233,9 @@ func (us *UserService) CreateLoci(ctx context.Context, userID uuid.UUID, params 
 				Lat:  row.Lat,
 				Long: row.Long,
 			},
-			Createdat:  row.CreatedAt,
-			Viewscount: int64(row.ViewCount),
+			Createdat:    row.CreatedAt,
+			Viewscount:   int64(row.ViewCount),
+			Repliescount: int64(row.RepliesCount),
 		}
 
 		//push loci to hub
@@ -275,6 +291,26 @@ func (us *UserService) RecordView(ctx context.Context, userID uuid.UUID, locusID
 		log.Printf("failed committing to the database due: %s", err)
 	}
 
+	// Fetch Locus details for broadcast (Create a new standalone query since tx is committed)
+	// We use us.query instead of qtx because qtx is bound to the closed transaction
+	locusDetails, err := us.query.GetLocusLocation(ctx, locusID)
+	if err == nil {
+		viewEvent := &models.ViewEvent{
+			UserID:  userID,
+			LocusID: locusID,
+			LocusLocation: models.GeoPoint{
+				Lat:  locusDetails.Lat,
+				Long: locusDetails.Long,
+			},
+			ViewedAt: time.Now(),
+		}
+		// Non-blocking send or blocking? Ideally non-blocking so viewed call doesn't hang if hub is full
+		// But channels are buffered/managed by hub.
+		us.hub.BroadcastView <- viewEvent
+	} else {
+		log.Printf("Failed to get locus location for broadcast: %v", err)
+	}
+
 	return &models.View{
 		UserID:   locusView.UserID,
 		LocusID:  locusView.LocusID,
@@ -304,12 +340,11 @@ func (us *UserService) ReplyLoci(ctx context.Context, userID uuid.UUID, locusID 
 		log.Printf("Failed to create and insert reply into database due to: %s", err)
 	}
 
-	err = qtx.IncrementReplyCount(ctx, reply.ID)
+	err = qtx.IncrementReplyCount(ctx, reply.LocusID)
 	if err != nil {
 		log.Printf("failed to increment reply count for Loci: %s", err)
 	}
 
-	// FIX: Use reply.ID, not locusID
 	broadCastReply, err := qtx.GetReplyForBroadcast(ctx, reply.ID)
 	if err != nil {
 		log.Printf("failed to get Loci due to: %s", err)
@@ -347,3 +382,28 @@ func (us *UserService) ReplyLoci(ctx context.Context, userID uuid.UUID, locusID 
 		CreatedAT: reply.CreatedAt.Time,
 	}, nil
 }
+
+// GetReplies fetches all replies for a locus ordered by newest first.
+func (us *UserService) GetReplies(ctx context.Context, locusID uuid.UUID) ([]models.Reply, error) {
+	replies, err := us.query.GetRepliesByLocus(ctx, locusID)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]models.Reply, 0, len(replies))
+	for _, r := range replies {
+		results = append(results, models.Reply{
+			ReplyID:   r.ID,
+			LocusID:   r.LocusID,
+			UserID:    r.UserID,
+			Content:   r.Content,
+			CreatedAT: r.CreatedAt.Time,
+		})
+	}
+
+	return results, nil
+}
+
+//func (us *UserService) GetReplyToLoci(ctx context.Context, locusID uuid.UUID, userID uuid.UUID) (*models.Reply, error) {
+
+//}
