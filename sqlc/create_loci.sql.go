@@ -25,7 +25,8 @@ RETURNING
     id, 
     user_id, 
     message, 
-    ST_AsText(location) AS location, -- This converts binary geography to string
+    ST_Y(location::geometry)::float8 as lat,
+    ST_X(location::geometry)::float8 as long,
     created_at, 
     view_count, 
     replies_count, 
@@ -44,7 +45,8 @@ type CreateLociRow struct {
 	ID              uuid.UUID
 	UserID          uuid.UUID
 	Message         string
-	Location        interface{}
+	Lat             float64
+	Long            float64
 	CreatedAt       time.Time
 	ViewCount       int32
 	RepliesCount    int32
@@ -70,7 +72,8 @@ func (q *Queries) CreateLoci(ctx context.Context, arg CreateLociParams) ([]Creat
 			&i.ID,
 			&i.UserID,
 			&i.Message,
-			&i.Location,
+			&i.Lat,
+			&i.Long,
 			&i.CreatedAt,
 			&i.ViewCount,
 			&i.RepliesCount,

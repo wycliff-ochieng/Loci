@@ -36,9 +36,47 @@ func (q *Queries) CreateReply(ctx context.Context, arg CreateReplyParams) (Reply
 	return i, err
 }
 
+const getRepliesByLocus = `-- name: GetRepliesByLocus :many
+SELECT 
+	r.id,
+	r.locus_id,
+	r.user_id,
+	r.content,
+	r.created_at
+FROM replies r
+WHERE r.locus_id = $1
+ORDER BY r.created_at DESC
+`
+
+func (q *Queries) GetRepliesByLocus(ctx context.Context, locusID uuid.UUID) ([]Reply, error) {
+	rows, err := q.db.Query(ctx, getRepliesByLocus, locusID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Reply
+	for rows.Next() {
+		var i Reply
+		if err := rows.Scan(
+			&i.ID,
+			&i.LocusID,
+			&i.UserID,
+			&i.Content,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const incrementReplyCount = `-- name: IncrementReplyCount :exec
 UPDATE loci 
-SET replies_count = replies_count + 1 
+SET replies_count = replies_count + 1
 WHERE id = $1
 `
 

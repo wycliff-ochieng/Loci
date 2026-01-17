@@ -7,6 +7,9 @@ package sqlc
 
 import (
 	"context"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 const getLociInBounds = `-- name: GetLociInBounds :many
@@ -14,7 +17,8 @@ SELECT
     id,
     user_id,
     message,
-    location,
+    ST_Y(location::geometry)::float8 as lat,
+    ST_X(location::geometry)::float8 as long,
     created_at,
     view_count,
     replies_count,
@@ -34,7 +38,19 @@ type GetLociInBoundsParams struct {
 	StMakeenvelope_4 interface{}
 }
 
-func (q *Queries) GetLociInBounds(ctx context.Context, arg GetLociInBoundsParams) ([]Loci, error) {
+type GetLociInBoundsRow struct {
+	ID              uuid.UUID
+	UserID          uuid.UUID
+	Message         string
+	Lat             float64
+	Long            float64
+	CreatedAt       time.Time
+	ViewCount       int32
+	RepliesCount    int32
+	VisibilityScore float64
+}
+
+func (q *Queries) GetLociInBounds(ctx context.Context, arg GetLociInBoundsParams) ([]GetLociInBoundsRow, error) {
 	rows, err := q.db.Query(ctx, getLociInBounds,
 		arg.StMakeenvelope,
 		arg.StMakeenvelope_2,
@@ -45,14 +61,15 @@ func (q *Queries) GetLociInBounds(ctx context.Context, arg GetLociInBoundsParams
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Loci
+	var items []GetLociInBoundsRow
 	for rows.Next() {
-		var i Loci
+		var i GetLociInBoundsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
 			&i.Message,
-			&i.Location,
+			&i.Lat,
+			&i.Long,
 			&i.CreatedAt,
 			&i.ViewCount,
 			&i.RepliesCount,
@@ -66,4 +83,23 @@ func (q *Queries) GetLociInBounds(ctx context.Context, arg GetLociInBoundsParams
 		return nil, err
 	}
 	return items, nil
+}
+
+const getLocusLocation = `-- name: GetLocusLocation :one
+SELECT id, ST_Y(location::geometry)::float8 as lat, ST_X(location::geometry)::float8 as long
+FROM loci
+WHERE id = $1
+`
+
+type GetLocusLocationRow struct {
+	ID   uuid.UUID
+	Lat  float64
+	Long float64
+}
+
+func (q *Queries) GetLocusLocation(ctx context.Context, id uuid.UUID) (GetLocusLocationRow, error) {
+	row := q.db.QueryRow(ctx, getLocusLocation, id)
+	var i GetLocusLocationRow
+	err := row.Scan(&i.ID, &i.Lat, &i.Long)
+	return i, err
 }
