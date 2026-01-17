@@ -18,6 +18,7 @@ import (
 	"github.com/wycliff-ochieng/pkg/middleware"
 
 	//"github.com/wycliff-ochieng/internal/socket"
+	corshandlers "github.com/gorilla/handlers"
 	"github.com/wycliff-ochieng/internal/store"
 	handlers "github.com/wycliff-ochieng/internal/transport/http"
 	"github.com/wycliff-ochieng/sqlc"
@@ -82,6 +83,7 @@ func (s *Server) Run() {
 	uh := handlers.NewUserHandler(logger, us)
 
 	router := mux.NewRouter()
+	//srouter.Use(corsMiddleware(s.cfg.CORSOrigin))
 
 	register := router.Methods("POST").Subrouter()
 	register.HandleFunc("/register", uh.Register)
@@ -91,7 +93,7 @@ func (s *Server) Run() {
 
 	getLoci := router.Methods("GET").Subrouter()
 	getLoci.HandleFunc("/api/get/loci/", uh.GetLociInGeoFencedLocation)
-	getLoci.Use(authMiddleware)
+	// public read for map
 
 	postLoci := router.Methods("POST").Subrouter()
 	postLoci.HandleFunc("/api/post/loci", uh.CreateLoci)
@@ -105,12 +107,57 @@ func (s *Server) Run() {
 	replyLoci.HandleFunc("/api/loci/{id}/reply", uh.ReplyToLociHandler)
 	replyLoci.Use(authMiddleware)
 
-	router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	getReplies := router.Methods("GET").Subrouter()
+	getReplies.HandleFunc("/api/loci/{id}/replies", uh.GetRepliesHandler)
+	// public read for threads
+
+	wsRouter := router.Methods("GET").Subrouter()
+	wsRouter.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		socket.ServerWS(hub, w, r)
 	})
+	wsRouter.Use(authMiddleware)
 
-	if err := http.ListenAndServe(s.addr, router); err != nil {
+	//CORS configurtion
+	origins := s.cfg.CORSAllowedOrigins
+
+	allowedMethods := corshandlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
+	allowedHeaders := corshandlers.AllowedHeaders([]string{"Content-Type", "Authorization"})
+	allowCredentials := corshandlers.AllowCredentials()
+	allowedOrigins := corshandlers.AllowedOrigins(origins)
+
+	cm := corshandlers.CORS(allowedOrigins, allowCredentials, allowedMethods, allowedHeaders)(router)
+
+	if err := http.ListenAndServe(s.addr, cm); err != nil {
 		log.Fatalf("rror listening to server: %s", err)
 	}
 
+}
+
+// corsMiddleware allows the frontend (Next dev on 3001 by default) to reach the Go API on 3000.
+func corsMiddleware(origin string) mux.MiddlewareFunc {
+	allowed := map[string]struct{}{
+		origin:                  {},
+		"http://localhost:3001": {},
+		"http://127.0.0.1:3001": {},
+	}
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			reqOrigin := r.Header.Get("Origin")
+			if _, ok := allowed[reqOrigin]; ok {
+				w.Header().Set("Access-Control-Allow-Origin", reqOrigin)
+				w.Header().Set("Vary", "Origin")
+			}
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Origin, Authorization, Content-Type, Accept")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
