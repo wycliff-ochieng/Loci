@@ -10,15 +10,17 @@ Geo-messaging platform for dropping short messages (“loci”) pinned to map co
 - **sqlc for safety:** Queries in `internal/store/queries` generate typed data access (`sqlc/`), reducing runtime SQL errors.
 - **Separation of concerns:** Handlers (`internal/transport/http`) stay thin; services (`internal/service`) orchestrate business rules; storage isolated in `internal/store`.
 
-### Backend Endpoints (current)
+### Endpoints (current)
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
 | POST | `/register` | none | Create a user account. |
 | POST | `/login` | none | Login with email/username + password, returns JWT pair. |
-| GET | `/api/get/loci/` | JWT | Fetch loci within a bounding box (query params: `SouthWestLat`, `SouthWestLong`, `NorthEastLat`, `NorthEastLong`). |
+| GET | `/api/get/loci/` | none | Fetch loci within a bounding box (`SouthWestLat`, `SouthWestLong`, `NorthEastLat`, `NorthEastLong`). |
 | POST | `/api/post/loci` | JWT | Create a new locus message (body includes message + coords). |
-
-> Replies/views endpoints are planned but not yet exposed in the router; db queries and schemas exist for quick enablement.
+| GET | `/api/loci/{id}/replies` | none | List replies for a locus (newest first). |
+| POST | `/api/loci/{id}/reply` | JWT | Create a reply for a locus. |
+| POST | `/api/loci/{id}/view` | JWT | Record a view for a locus (increments view_count). |
+| GET | `/ws` | JWT | WebSocket endpoint (hub broadcasts for loci/replies/views).
 
 ### Configuration
 Set environment variables (or `.env` loaded by `internal/config`):
@@ -47,15 +49,17 @@ App routes: live map + feed at `/`, thread view at `/loci/[id]`, auth pages at `
 
 ### Project Layout (key parts)
 - `cmd/main.go` — bootstraps server with config, Redis limiter, router.
-- `api/` — server wiring and route registration (mux).
+- `api/` — server wiring and route registration (mux + CORS).
 - `internal/transport/http` — HTTP handlers.
-- `internal/service` — business logic (auth, loci creation, geo queries).
+- `internal/service` — business logic (auth, loci creation, geo queries, replies, views, broadcasts).
 - `internal/store` — DB setup, migrations, SQL queries.
 - `pkg/middleware` — auth middleware.
-- `internal/socket` — websocket hub (not yet wired to routes).
+- `internal/socket` — websocket hub for broadcast channels.
 - `web/` — Next.js app router frontend.
+- `docs/` — detailed architecture, geolocation/PostGIS, replies/views, and frontend flow notes.
 
 ### Notes & Next Steps
-- Wire reply/view endpoints into the router using existing sqlc queries and schemas.
-- Connect frontend API calls to the live backend once endpoints are exposed.
+- Frontend needs a valid bearer token to post loci/replies/views; public reads work unauthenticated.
+- Configure `NEXT_PUBLIC_API_BASE` to point at the Go API (defaults to `http://localhost:3000`).
 - Consider enabling HTTPS/production configs and containerizing DB/Redis for deployment.
+- See `docs/` for deep dives on architecture, geolocation/PostGIS, replies/views, and frontend flows.
