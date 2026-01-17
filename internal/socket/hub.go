@@ -30,6 +30,7 @@ type Hub struct {
 	Broadcast      chan []byte
 	BroadcastLocus chan *models.Locus
 	BroadcastReply chan *models.ReplyEvent
+	BroadcastView  chan *models.ViewEvent
 }
 
 type Websocket struct {
@@ -45,6 +46,7 @@ func NewHub() *Hub {
 		Clients:        make(map[*Client]bool),
 		BroadcastLocus: make(chan *models.Locus),
 		BroadcastReply: make(chan *models.ReplyEvent),
+		BroadcastView:  make(chan *models.ViewEvent),
 	}
 }
 
@@ -132,7 +134,7 @@ func (h *Hub) Run() {
 				dist := models.CalculateDistance(c.Location, replyLocation)
 				log.Printf("[HUB] Client Dist: %.2f km. (Limit: 5000km)", dist)
 
-				const replyBroadcastDistance = 5000
+				const replyBroadcastDistance = 6000
 
 				if dist < replyBroadcastDistance {
 					select {
@@ -144,6 +146,44 @@ func (h *Hub) Run() {
 				}
 			}
 
+		case view := <-h.BroadcastView:
+			log.Printf("[HUB] Received View Event for Locus: %s", view.LocusID)
+
+			viewEvent := Websocket{
+				Type:    "VIEW_EVENT",
+				Payload: view,
+			}
+
+			marshalledView, err := json.Marshal(viewEvent)
+			if err != nil {
+				log.Printf("Error marshalling view: %s", err)
+				continue
+			}
+
+			for c := range h.Clients {
+				if c.Location == nil {
+					continue
+				}
+
+				// Loci location from view event
+				locusLoc := &models.GeoPoint{
+					Lat:  view.LocusLocation.Lat,
+					Long: view.LocusLocation.Long,
+				}
+
+				dist := models.CalculateDistance(c.Location, locusLoc)
+				// You might want a different radius for views, or same
+				const viewBroadcastDistance = 5000
+
+				if dist < viewBroadcastDistance {
+					select {
+					case c.Send <- marshalledView:
+					default:
+						close(c.Send)
+						delete(h.Clients, c)
+					}
+				}
+			}
 		}
 	}
 }
