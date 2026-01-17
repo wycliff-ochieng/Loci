@@ -3,20 +3,22 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	DB_HOST        string
-	DB_PASSWORD    string
-	DB_PORT        int64
-	DB_NAME        string
-	DB_USER        string
-	DB_SSLMODE     string
-	JWTsecret      string
-	REDIS_ADDR     string
-	REDIS_PASSWORD string
+	DB_HOST            string
+	DB_PASSWORD        string
+	DB_PORT            int64
+	DB_NAME            string
+	DB_USER            string
+	DB_SSLMODE         string
+	JWTsecret          string
+	REDIS_ADDR         string
+	REDIS_PASSWORD     string
+	CORSAllowedOrigins []string
 }
 
 func Load() (*Config, error) {
@@ -34,6 +36,8 @@ func Load() (*Config, error) {
 	config.JWTsecret = getEnv("JWTSecret", "mydogiscalledrufus")
 	config.REDIS_ADDR = getEnv("REDIS_ADDR", "localhost:6379")
 	config.REDIS_PASSWORD = getEnv("REDIS_PASSWORD", "secretpassword")
+	//config.CORSOrigin = getEnv("CORS_ALLOWED_ORIGIN", "http://localhost:3001")
+	config.CORSAllowedOrigins = getEnvAsSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3001"}, ",")
 
 	return config, nil
 }
@@ -51,4 +55,12 @@ func getEnvAsInt(key string, defaultValue int) int {
 		return value
 	}
 	return defaultValue
+}
+
+func getEnvAsSlice(key string, defaultValue []string, separator string) []string {
+	valueStr := getEnv(key, "")
+	if valueStr == "" {
+		return defaultValue
+	}
+	return strings.Split(valueStr, separator)
 }
