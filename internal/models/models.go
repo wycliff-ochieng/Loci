@@ -29,12 +29,13 @@ type LociResponse struct {
 }
 
 type Locus struct {
-	ID         uuid.UUID
-	UserID     uuid.UUID
-	Message    string
-	Location   GeoPoint
-	Createdat  time.Time
-	Viewscount int64
+	ID           uuid.UUID `json:"id"`
+	UserID       uuid.UUID `json:"user_id"`
+	Message      string    `json:"message"`
+	Location     GeoPoint  `json:"location"`
+	Createdat    time.Time `json:"created_at"`
+	Viewscount   int64     `json:"view_count"`
+	Repliescount int64     `json:"replies_count"`
 }
 
 type BoundBox struct {
@@ -49,10 +50,31 @@ type Metadata struct {
 }
 
 type GeoPoint struct {
-	Lat  float64
-	Long float64
+	Lat  float64 `json:"lat"`
+	Long float64 `json:"long"`
 }
 
+type View struct {
+	UserID   uuid.UUID
+	LocusID  uuid.UUID
+	ViewedAT time.Time
+}
+
+type Reply struct {
+	ReplyID   uuid.UUID `json:"replyid"`
+	LocusID   uuid.UUID `json:"locusid"`
+	UserID    uuid.UUID `json:"userid"`
+	Content   string    `json:"content"`
+	CreatedAT time.Time `json:"createdat"`
+}
+
+type ReplyEvent struct {
+	ReplyID       uuid.UUID `json:"replyid"`
+	LocusID       uuid.UUID `json:"locusid"`
+	UserName      string    `json:"username"`
+	LocusLocation GeoPoint  `json:"locus_location"`
+	CreatedAt     time.Time `json:"createdat"`
+}
 type User struct {
 	ID        int       `json:"id"`
 	UserID    uuid.UUID `json:"userId"`
@@ -77,10 +99,6 @@ func NewUser(id int, username string, firstname string, lastname string, email s
 		Email:     email,
 		Password:  string(hashedPassword),
 	}, nil
-}
-
-func (u *User) ComparePassword(password string) error {
-	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
 }
 
 func ComparePassword(harshedPassword string, password string) error {
@@ -109,4 +127,11 @@ func CalculateDistance(pt1, pt2 *GeoPoint) float64 {
 	distance := earthRadiusKM * c
 
 	return distance
+}
+
+type ViewEvent struct {
+	UserID        uuid.UUID `json:"userid"`
+	LocusID       uuid.UUID `json:"locusid"`
+	LocusLocation GeoPoint  `json:"locus_location"`
+	ViewedAt      time.Time `json:"viewedat"`
 }
