@@ -104,7 +104,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//validate user input
-	if req.Email == " " || req.Password == " " {
+	if req.Email == "" || req.Password == "" {
 		http.Error(w, "email or password required", http.StatusExpectationFailed)
 		return
 	}
@@ -139,7 +139,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 // api :: GET -> api/loci?{SouthWestlat=54.21}&{SouthEast}&{}&{}
 // localhost:3000/api/get/loci/?SouthWestlat=30.26&SouthWestLong=-97.75&NorthEastLat=30.27&NorthEastLong=-97.73
 func (h *UserHandler) GetLociInGeoFencedLocation(w http.ResponseWriter, r *http.Request) {
-	h.logger.Info("Messages within geofenced location being viewed")
+	h.logger.Info("[GET] Messages within geofenced location being viewed")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -228,8 +228,8 @@ func (h *UserHandler) CreateLoci(w http.ResponseWriter, r *http.Request) {
 	serviceParam := sqlc.CreateLociParams{
 		UserID:        userID,
 		Message:       req.Message,
-		StMakepoint:   req.Location.Lat,
-		StMakepoint_2: req.Location.Long,
+		StMakepoint:   req.Location.Long, // ST_MakePoint takes (X/Long, Y/Lat)
+		StMakepoint_2: req.Location.Lat,
 		//Location: req.Location,
 	}
 
@@ -325,4 +325,32 @@ func (h *UserHandler) ReplyToLociHandler(w http.ResponseWriter, r *http.Request)
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&reply)
+}
+
+// GetRepliesHandler lists replies for a given locus.
+func (h *UserHandler) GetRepliesHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+
+	locusIDStr := vars["id"]
+	locusID, err := uuid.Parse(locusIDStr)
+	if err != nil {
+		http.Error(w, "Invalid locus ID format", http.StatusBadRequest)
+		return
+	}
+
+	replies, err := h.us.GetReplies(ctx, locusID)
+	if err != nil {
+		http.Error(w, "failed to fetch replies", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&replies)
+}
+
+func (h *UserHandler) GetReplies(w http.ResponseWriter, r *http.Request) {
+	log.Println("[GET] Fetching replies for the select message ")
+
 }
