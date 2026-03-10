@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -16,6 +16,7 @@ import (
 type Postgis struct {
 	db *pgxpool.Pool
 	//dbtx sqlc.DBTX
+	cfg *config.Config
 }
 
 func NewPostgis(ctx context.Context, cfg *config.Config) (*Postgis, error) {
@@ -36,14 +37,17 @@ func NewPostgis(ctx context.Context, cfg *config.Config) (*Postgis, error) {
 
 	db := stdlib.OpenDBFromPool(dbPool)
 
-	if err := goose.SetDialect("postrges"); err != nil {
+	if err := goose.SetDialect("postgres"); err != nil {
 		log.Fatalf("error setting dialect: %s", err)
 	}
 
-	if err := goose.Up(db, "path/to/migrations"); err != nil {
+	if err := goose.Up(db, "./internal/store/migrations"); err != nil {
 		log.Fatalf("error spinning up goose: %s", err)
 	}
-	return &Postgis{dbPool}, nil
+	return &Postgis{
+		db:  dbPool,
+		cfg: cfg,
+	}, nil
 }
 
 //Exec(context.Context, string, ...interface{}) (pgconn.CommandTag, error)
@@ -60,6 +64,10 @@ func (pg *Postgis) Query(ctx context.Context, query string, args ...interface{})
 
 func (pg *Postgis) QueryRow(ctx context.Context, query string, args ...interface{}) pgx.Row {
 	return pg.db.QueryRow(ctx, query, args...)
+}
+
+func (pg *Postgis) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
+	return pg.db.BeginTx(ctx, txOptions)
 }
 
 func (pg *Postgis) Init(ctx context.Context) error {

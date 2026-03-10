@@ -5,5 +5,7 @@ CREATE TABLE loci (
     -- GEOGRAPHY type is better than GEOMETRY for lat/lon calculations in meters/km
     location GEOGRAPHY(Point, 4326) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    view_count INT NOT NULL DEFAULT 0
+    view_count INT NOT NULL DEFAULT 0,
+    replies_count INT NOT NULL DEFAULT 0,
+    visibility_score FLOAT NOT NULL DEFAULT 0.0
 );
