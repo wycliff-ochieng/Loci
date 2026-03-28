@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS replies (
 );
 
 -- Index for performance: we will frequently fetch replies for a specific Locus
-CREATE INDEX idx_replies_locus_id ON replies(locus_id);
+-- CREATE INDEX idx_replies_locus_id ON replies(locus_id);
+CREATE INDEX IF NOT EXISTS idx_replies_locus_id ON replies(locus_id);
 
 -- +goose Down
 -- +goose StatementBegin

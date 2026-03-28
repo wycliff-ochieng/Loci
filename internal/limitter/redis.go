@@ -55,7 +55,7 @@ func (r *RedisLimitter) AllowPost(ctx context.Context, key string) (bool, error)
 
 	count, err := countCmd.Result()
 	if err != nil {
-		return false, fmt.Errorf("failed to count commands due to: ", err)
+		return false, fmt.Errorf("failed to count commands due to: %w", err)
 	}
 
 	if int(count) > int(r.Limit) {

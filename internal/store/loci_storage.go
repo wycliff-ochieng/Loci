@@ -1,5 +1,5 @@
 package store
 
-type Loci interface{
+type Loci interface {
 	//All bd methods
 }
