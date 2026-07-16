@@ -13,9 +13,25 @@ data:
       server backend:3000;
     }
 
+    # Redirect all plain-HTTP traffic to HTTPS so that browsers grant the
+    # Geolocation API (navigator.geolocation) access.  Browsers only allow
+    # geolocation in a secure context (HTTPS or localhost); serving over HTTP
+    # causes the API to be blocked and the frontend falls back to inaccurate
+    # default coordinates.
     server {
       listen 80;
       server_name _;
+      return 301 https://$host$request_uri;
+    }
+
+    server {
+      listen 443 ssl;
+      server_name _;
+
+      ssl_certificate     /etc/nginx/certs/tls.crt;
+      ssl_certificate_key /etc/nginx/certs/tls.key;
+      ssl_protocols       TLSv1.2 TLSv1.3;
+      ssl_session_timeout 10m;
 
       location /ws {
         set $ws_auth_header "";
@@ -76,10 +92,15 @@ spec:
           ports:
             - containerPort: 80
               name: http
+            - containerPort: 443
+              name: https
           volumeMounts:
             - name: nginx-config
               mountPath: /etc/nginx/conf.d/default.conf
               subPath: default.conf
+            - name: tls-certs
+              mountPath: /etc/nginx/certs
+              readOnly: true
           readinessProbe:
             tcpSocket:
               port: 80
@@ -89,6 +110,9 @@ spec:
         - name: nginx-config
           configMap:
             name: nginx-config
+        - name: tls-certs
+          secret:
+            secretName: loci-tls
 ---
 apiVersion: v1
 kind: Service
@@ -103,3 +127,6 @@ spec:
     - name: http
       port: 80
       targetPort: 80
+    - name: https
+      port: 443
+      targetPort: 443
